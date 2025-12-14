@@ -10,6 +10,7 @@
     "@fastify/static": "^7.0.4",
     "@fastify/formbody": "^8.0.0",
     "discord.js": "^14.15.3",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "node-fetch": "^2.6.7"
   }
 }
