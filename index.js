@@ -32,7 +32,7 @@ const db = new sqlite3.Database(DB_PATH);
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY CHECK(id=1),
-    channel_id TEXT DEFAULT '',
+    channel_id TEXT DEFAULT '1432361053437689898',
     test_type TEXT DEFAULT 'prefix',
     command TEXT DEFAULT '!ping',
     interval_ms INTEGER DEFAULT 15000,
