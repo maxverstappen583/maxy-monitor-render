@@ -34,7 +34,7 @@ db.serialize(() => {
     id INTEGER PRIMARY KEY CHECK(id=1),
     channel_id TEXT DEFAULT '1432361053437689898',
     test_type TEXT DEFAULT 'slash',
-    command TEXT DEFAULT '/ping',
+    command TEXT DEFAULT '/utility ping',
     interval_ms INTEGER DEFAULT 150000,
     timeout_ms INTEGER DEFAULT 5000,
     response_match TEXT DEFAULT 'pong',
