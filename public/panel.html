@@ -1,237 +1,97 @@
 <!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>Maxy Monitor — Control Panel</title>
-<style>
-  :root {
-    --bg:#111; --panel:#0b0b0b; --muted:#999; --accent:#1f6feb;
-    --good:#9ef0b0; --bad:#ff9090; --card-border:#222;
-  }
-  body { background:var(--bg); color:white; font-family:Arial, Helvetica, sans-serif; padding:30px; }
-  .wrap { max-width:880px; margin:0 auto; }
-  h2 { margin:0 0 12px 0; }
-  .panel { background:var(--panel); padding:16px; border-radius:8px; border:1px solid var(--card-border); }
-  .row { display:flex; gap:12px; align-items:center; }
-  .statusBox { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px; border-radius:8px; background:#080808; margin-bottom:12px; }
-  .stat { font-size:13px; color:var(--muted); }
-  .big { font-weight:700; font-size:16px; }
-  .statusOnline { color:var(--good); font-weight:700; }
-  .statusDown { color:var(--bad); font-weight:700; }
-  form { margin-top:12px; }
-  label { display:block; margin-top:10px; font-weight:600; color:#ddd; font-size:13px; }
-  input, select { padding:10px; width:100%; margin-top:6px; box-sizing:border-box; background:#060606; border:1px solid var(--card-border); color:#eee; border-radius:6px; }
-  .two { display:flex; gap:12px; }
-  .two input { flex:1; }
-  button { margin-top:12px; padding:10px 16px; cursor:pointer; background:var(--accent); border:none; color:white; border-radius:6px; }
-  #runResult { margin-top:12px; padding:12px; background:#050505; border-radius:8px; color:#ddd; border:1px solid var(--card-border); min-height:28px; }
-  .hint { color:var(--muted); font-size:13px; margin-top:6px; }
-  .label-small { font-size:12px; color:var(--muted); }
-  .top-grid { display:flex; gap:12px; margin-bottom:12px; }
-  .card { flex:1; padding:12px; border-radius:8px; background:#080808; border:1px solid var(--card-border); }
-  .card .k { color:var(--muted); font-size:12px; }
-  .card .v { margin-top:8px; font-weight:700; }
-  a { color:#bbb; text-decoration:none; }
-</style>
+<head><meta charset="utf-8"><title>Admin Panel</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>body{font-family:Inter,Arial;background:#071017;color:#e8f0f2;padding:20px}.card{background:#0b1720;padding:16px;border-radius:10px;margin-bottom:12px}</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <h2>Maxy Monitor — Control Panel</h2>
+  <h2>Maxy Monitor — Admin</h2>
+  <div class="card">
+    <form id="settingsForm">
+      <label>Channel ID</label><br><input id="channel_id" name="channel_id"><br>
+      <label>Command</label><br><input id="command" name="command" value="!ping"><br>
+      <label>Test Type</label><br><select id="test_type" name="test_type"><option value="prefix">prefix</option><option value="mention">mention</option></select><br>
+      <label>Interval (ms)</label><br><input id="interval_ms" name="interval_ms" value="15000"><br>
+      <label>Timeout (ms)</label><br><input id="timeout_ms" name="timeout_ms" value="5000"><br>
+      <label>Response match</label><br><input id="response_match" name="response_match" value="pong"><br>
+      <label>Auto ping URL (optional)</label><br><input id="auto_ping_url" name="auto_ping_url" placeholder="https://..."><br>
+      <label>Auto ping interval (s)</label><br><input id="auto_ping_interval_s" name="auto_ping_interval_s" value="300"><br><br>
+      <button id="saveBtn" type="button">Save settings</button>
+      <button id="saveRunBtn" type="button">Save & Run</button>
+      <button id="runBtn" type="button">Run immediate</button>
+    </form>
+    <div id="runResult"></div>
+  </div>
 
-    <!-- Top cards show current status, configured Channel ID and Interval -->
-    <div class="top-grid">
-      <div class="card">
-        <div class="k">Monitor status</div>
-        <div class="v" id="curStatus">Loading…</div>
-        <div class="label-small" id="lastCheck">...</div>
-      </div>
+  <div class="card">
+    <div>Override status</div>
+    <button onclick="setOverride('maintenance')">Maintenance</button>
+    <button onclick="setOverride('restarting')">Restarting</button>
+    <button onclick="setOverride('updating')">Updating</button>
+    <button onclick="setOverride('')">Auto</button>
+    <div id="overrideRes"></div>
+  </div>
 
-      <div class="card">
-        <div class="k">Configured Channel ID</div>
-        <div class="v" id="cfgChannel">—</div>
-        <div class="label-small">Channel where test messages are sent</div>
-      </div>
-
-      <div class="card">
-        <div class="k">Check Interval (ms)</div>
-        <div class="v" id="cfgInterval">—</div>
-        <div class="label-small">How often the monitor runs</div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="statusBox">
-        <div>
-          <span class="stat">Current status: </span>
-          <span id="curStatusSmall" class="big">Loading…</span>
-        </div>
-        <div class="stat" id="lastDownSmall">Last down: —</div>
-      </div>
-
-      <form id="settingsForm" method="POST" action="/set-test">
-        <label>Test Type
-          <select name="test_type" id="test_type">
-            <option value="prefix">Prefix command (e.g. !ping)</option>
-            <option value="mention">Mention + command (e.g. @Maxy healthcheck)</option>
-          </select>
-        </label>
-
-        <label>Command (exact text to send)
-          <input id="command" name="command" placeholder="!ping or healthcheck">
-        </label>
-        <div class="hint">If using <code>mention</code>, put only the command text (e.g. <code>healthcheck</code>).</div>
-
-        <label>Channel ID to send test in
-          <input id="channel_id" name="channel_id" placeholder="Channel ID (right-click -> Copy ID)">
-        </label>
-
-        <div class="two">
-          <div>
-            <label>Timeout (ms) to wait for Maxy reply
-              <input id="timeout_ms" name="timeout_ms" placeholder="5000">
-            </label>
-          </div>
-          <div>
-            <label>Check interval (ms)
-              <input id="interval_ms" name="interval_ms" placeholder="15000">
-            </label>
-          </div>
-        </div>
-
-        <label>Response match (regex or substring — default 'pong')
-          <input id="response_match" name="response_match" placeholder="pong">
-        </label>
-
-        <button type="submit">Save settings</button>
-      </form>
-
-      <p style="margin-top:10px;"><a href="/logout">Logout</a></p>
-
-      <hr style="border-color:#222;margin-top:18px">
-
-      <h3 style="margin-bottom:6px;">Quick actions</h3>
-      <p class="hint">Run an immediate check (will send the configured command in the configured channel).</p>
-
-      <div class="row" style="margin-top:8px;">
-        <button id="runBtn">Run immediate check</button>
-        <div id="spinner" style="display:none;margin-left:8px">⏳</div>
-      </div>
-
-      <div id="runResult">Result will appear here.</div>
-
-      <div style="margin-top:12px" class="hint">
-        Tip: make sure the monitor bot has <strong>Read Messages / Send Messages</strong> and Maxy can reply publicly in the channel.
-      </div>
-    </div>
-
+  <div class="card">
+    <div>Preview chart</div>
+    <canvas id="panelChart" height="120"></canvas>
   </div>
 
 <script>
-function el(id){ return document.getElementById(id); }
-
-function formatSince(ts) {
-  if (!ts) return "—";
-  const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return s + "s";
-  if (s < 3600) return Math.floor(s/60) + "m";
-  return Math.floor(s/3600) + "h " + Math.floor((s%3600)/60) + "m";
+async function fetchJson(url){ const r=await fetch(url); return r.ok? r.json() : null; }
+async function prefill(){
+  const s = await fetchJson('/get-settings');
+  if(!s){ document.body.insertAdjacentHTML('afterbegin','<div style="color:#f00">Login required</div>'); return; }
+  document.getElementById('channel_id').value = s.channel_id || '';
+  document.getElementById('command').value = s.command || '!ping';
+  document.getElementById('test_type').value = s.test_type || 'prefix';
+  document.getElementById('interval_ms').value = s.interval_ms || 15000;
+  document.getElementById('timeout_ms').value = s.timeout_ms || 5000;
+  document.getElementById('response_match').value = s.response_match || 'pong';
+  document.getElementById('auto_ping_url').value = s.auto_ping_url || '';
+  document.getElementById('auto_ping_interval_s').value = s.auto_ping_interval_s || 300;
+  const months = await fetchJson('/monthly.json');
+  if(months){ drawPanelChart(months); }
 }
 
-async function fetchSettings() {
-  try {
-    const res = await fetch("/get-settings");
-    if (!res.ok) throw new Error("Not authenticated");
-    return await res.json();
-  } catch(e) {
-    console.warn("Cannot fetch settings:", e);
-    return null;
-  }
-}
-
-async function fetchStatus() {
-  try {
-    const res = await fetch("/status.json");
-    if (!res.ok) throw new Error("status fetch failed");
-    return await res.json();
-  } catch(e) {
-    console.warn("Cannot fetch status:", e);
-    return null;
-  }
-}
-
-async function init() {
-  const s = await fetchSettings();
-  if (s) {
-    document.getElementById("test_type").value = s.test_type || "prefix";
-    document.getElementById("command").value = s.command || "!ping";
-    document.getElementById("channel_id").value = s.channel_id || "";
-    document.getElementById("timeout_ms").value = s.timeout_ms || 5000;
-    document.getElementById("interval_ms").value = s.interval_ms || 15000;
-    document.getElementById("response_match").value = s.response_match || "pong";
-
-    el("cfgChannel").innerText = s.channel_id || "Not configured";
-    el("cfgInterval").innerText = (s.interval_ms && Number(s.interval_ms) > 0) ? String(s.interval_ms) + " ms" : "Not set";
-  } else {
-    el("cfgChannel").innerText = "Not available (login required)";
-    el("cfgInterval").innerText = "Not available";
-  }
-
-  const st = await fetchStatus();
-  if (st) {
-    const status = (st.status || "online").toLowerCase();
-    const statusText = status === "online" ? "ONLINE" : "DOWN";
-    el("curStatus").innerText = statusText;
-    el("curStatus").className = status === "online" ? "statusOnline" : "statusDown";
-    el("curStatusSmall").innerText = statusText;
-    el("curStatusSmall").className = status === "online" ? "statusOnline" : "statusDown";
-
-    if (st.lastDown) {
-      el("lastDownSmall").innerText = "Last down: " + new Date(st.lastDown).toLocaleString() + " (" + formatSince(st.lastDown) + " ago)";
-      el("lastCheck").innerText = "Last down recorded: " + new Date(st.lastDown).toLocaleString();
-    } else {
-      el("lastDownSmall").innerText = "No recent down records";
-      el("lastCheck").innerText = "No recent down records";
-    }
-  } else {
-    el("curStatus").innerText = "Unknown";
-    el("curStatusSmall").innerText = "Unknown";
-    el("lastDownSmall").innerText = "—";
-    el("lastCheck").innerText = "—";
-  }
-}
-
-// Run immediate check button
-document.getElementById("runBtn").addEventListener("click", async () => {
-  const btn = document.getElementById("runBtn");
-  const spinner = document.getElementById("spinner");
-  const out = document.getElementById("runResult");
-  btn.disabled = true;
-  spinner.style.display = "inline";
-  out.textContent = "Running immediate check…";
-
-  try {
-    const res = await fetch("/run-check", { method: "POST", headers: { "Content-Type": "application/json" } });
-    const json = await res.json();
-    if (res.ok) {
-      out.textContent = (json.ok ? "✅ UP — " : "❌ DOWN — ") + (json.message || "");
-      out.style.color = json.ok ? "#9ef0b0" : "#ff9090";
-      // refresh top cards/status after run
-      setTimeout(init, 800);
-    } else {
-      out.textContent = "Error: " + (json.message || "unknown");
-      out.style.color = "#ff9090";
-    }
-  } catch (e) {
-    out.textContent = "Request failed: " + e.message;
-    out.style.color = "#ff9090";
-  } finally {
-    btn.disabled = false;
-    spinner.style.display = "none";
-  }
+document.getElementById('saveBtn').addEventListener('click', async ()=> {
+  const body = new URLSearchParams(new FormData(document.getElementById('settingsForm')));
+  await fetch('/set-test', { method:'POST', body });
+  alert('Saved');
 });
 
-// init on load
-init();
+document.getElementById('saveRunBtn').addEventListener('click', async () => {
+  const body = new URLSearchParams(new FormData(document.getElementById('settingsForm')));
+  await fetch('/set-test', { method:'POST', body });
+  const r = await fetch('/run-check', { method:'POST' }).then(r=>r.json());
+  document.getElementById('runResult').textContent = r.ok? 'UP':'DOWN';
+  prefill();
+});
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+  const r = await fetch('/run-check', { method:'POST' }).then(r=>r.json());
+  document.getElementById('runResult').textContent = r.ok? 'UP':'DOWN';
+  prefill();
+});
+
+async function setOverride(s){
+  const body = new URLSearchParams(); body.append('status', s);
+  const r = await fetch('/set-override', { method:'POST', body });
+  const j = await r.json();
+  document.getElementById('overrideRes').textContent = j.ok? 'ok':'error';
+  prefill();
+}
+
+let panelChart=null;
+function drawPanelChart(months){
+  const ctx = document.getElementById('panelChart').getContext('2d');
+  const labels = months.map(d=>d.day.slice(5));
+  const data = months.map(d=>d.uptime);
+  if(panelChart) panelChart.destroy();
+  panelChart = new Chart(ctx, { type:'line', data:{ labels, datasets:[{data, borderColor:'#39d353', fill:true, backgroundColor:'rgba(57,211,83,0.08)'}] }, options:{scales:{y:{beginAtZero:true,max:100}}} });
+}
+
+prefill();
 </script>
-</body>
-</html>
+</body></html>
