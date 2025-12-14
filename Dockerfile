@@ -1,24 +1,23 @@
-# Dockerfile for Render
+# Use official Node.js LTS (stable & fast)
 FROM node:20-alpine
 
 # Create app directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Install dependencies
-COPY package.json package.json
-RUN npm install --production
+# Copy package files first (better caching)
+COPY package.json package-lock.json* ./
 
-# Copy app source
+# Install only production deps
+RUN npm install --omit=dev
+
+# Copy rest of the project
 COPY . .
 
-# Create runtime directory for DB
-RUN mkdir -p /usr/src/app/data && chown -R node:node /usr/src/app
+# Render provides PORT automatically
+ENV NODE_ENV=production
 
-USER node
+# Expose the port (Render maps it)
+EXPOSE 3000
 
-# Render sets PORT environment variable; default to 3000 locally
-ENV PORT=3000
-
-EXPOSE ${PORT}
-
+# Start the app
 CMD ["npm", "start"]
